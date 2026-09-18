@@ -8,13 +8,13 @@ variable "aws_profile" {
   default = "default"
 }
 
+variable "app_domain" {
+  description = "Dominio publico del chat. Debe coincidir con el certificado de ACM y con el CNAME en Cloudflare."
+  type        = string
+  default     = "chat.jarenramos.com"
+}
+
 variable "image_tag" {
   type    = string
   default = "latest"
-}
-
-variable "backend_url" {
-  description = "IP publica y puerto de la tarea del backend (ej: 50.17.49.116:8000). Solo se conoce despues de que la tarea arranca."
-  type        = string
-  default     = ""
 }

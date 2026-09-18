@@ -4,20 +4,12 @@ resource "aws_security_group" "backend" {
   vpc_id      = data.aws_vpc.default.id
 }
 
-resource "aws_vpc_security_group_ingress_rule" "backend_8000_ipv4" {
-  security_group_id = aws_security_group.backend.id
-  cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 8000
-  to_port           = 8000
-  ip_protocol       = "tcp"
-}
-
-resource "aws_vpc_security_group_ingress_rule" "backend_8000_ipv6" {
-  security_group_id = aws_security_group.backend.id
-  cidr_ipv6         = "::/0"
-  from_port         = 8000
-  to_port           = 8000
-  ip_protocol       = "tcp"
+resource "aws_vpc_security_group_ingress_rule" "backend_from_alb" {
+  security_group_id            = aws_security_group.backend.id
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 8000
+  to_port                      = 8000
+  ip_protocol                  = "tcp"
 }
 
 resource "aws_vpc_security_group_egress_rule" "backend_all" {
@@ -32,20 +24,12 @@ resource "aws_security_group" "frontend" {
   vpc_id      = data.aws_vpc.default.id
 }
 
-resource "aws_vpc_security_group_ingress_rule" "frontend_80_ipv4" {
-  security_group_id = aws_security_group.frontend.id
-  cidr_ipv4         = "0.0.0.0/0"
-  from_port         = 80
-  to_port           = 80
-  ip_protocol       = "tcp"
-}
-
-resource "aws_vpc_security_group_ingress_rule" "frontend_80_ipv6" {
-  security_group_id = aws_security_group.frontend.id
-  cidr_ipv6         = "::/0"
-  from_port         = 80
-  to_port           = 80
-  ip_protocol       = "tcp"
+resource "aws_vpc_security_group_ingress_rule" "frontend_from_alb" {
+  security_group_id            = aws_security_group.frontend.id
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 80
+  to_port                      = 80
+  ip_protocol                  = "tcp"
 }
 
 resource "aws_vpc_security_group_egress_rule" "frontend_all" {

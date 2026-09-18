@@ -2,369 +2,1316 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Chat en tiempo real con FastAPI, WebSockets y Redis Pub/Sub, desplegado en AWS ECS Fargate.">
+<meta name="theme-color" content="#5b5bf0">
 <title>Chat en tiempo real</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235b5bf0'/><stop offset='1' stop-color='%238b5cf6'/></linearGradient></defs><rect width='64' height='64' rx='16' fill='url(%23g)'/><path d='M49 31a17 17 0 0 1-24.6 15.2L15 48l2.2-8.6A17 17 0 1 1 49 31z' fill='white'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <script>
   window.BACKEND_URL = "${BACKEND_URL}";
+  try {
+    var savedTheme = localStorage.getItem('chat_theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
+  } catch (e) {}
 </script>
 <style>
   :root {
     color-scheme: light;
-    --bg: #f0f2f5;
-    --panel: #ffffff;
-    --border: #e2e5e9;
-    --text: #1c1e21;
-    --text-dim: #65676b;
-    --accent: #4f7cff;
-    --accent-text: #ffffff;
-    --bubble-other: #eef0f2;
-    --danger: #e0245e;
-    --ok: #22c55e;
-    --warn: #f59e0b;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    padding: 24px 12px;
-  }
-  #app {
-    width: 100%;
-    max-width: 640px;
-    background: var(--panel);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-    display: flex;
-    flex-direction: column;
-    height: 82vh;
-    overflow: hidden;
+    --bg: #f3f4f8;
+    --glow: rgba(99, 102, 241, 0.16);
+    --surface: #ffffff;
+    --surface-2: #f6f7fb;
+    --surface-3: #eceef5;
+    --border: #e3e6ef;
+    --text: #121521;
+    --text-muted: #6b7185;
+    --accent: #5b5bf0;
+    --accent-2: #8b5cf6;
+    --accent-soft: rgba(91, 91, 240, 0.12);
+    --grad-1: #5856e8;
+    --grad-2: #7a4fe0;
+    --on-accent: #ffffff;
+    --bubble-other: #f0f2f8;
+    --ok: #16a34a;
+    --warn: #d97706;
+    --danger: #dc2626;
+    --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 16px 48px rgba(16, 24, 40, 0.08);
+    --av-bg-s: 75%;
+    --av-bg-l: 91%;
+    --av-fg-s: 55%;
+    --av-fg-l: 34%;
+    --name-s: 50%;
+    --name-l: 38%;
   }
 
-  header {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #08090e;
+      --glow: rgba(124, 124, 255, 0.14);
+      --surface: #0f1219;
+      --surface-2: #151923;
+      --surface-3: #1d2230;
+      --border: #232938;
+      --text: #e7e9f0;
+      --text-muted: #8a91a6;
+      --accent: #7474ff;
+      --accent-2: #a78bfa;
+      --accent-soft: rgba(116, 116, 255, 0.16);
+      --bubble-other: #1a1f2b;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --danger: #f87171;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 24px 64px rgba(0, 0, 0, 0.5);
+      --av-bg-s: 35%;
+      --av-bg-l: 23%;
+      --av-fg-s: 85%;
+      --av-fg-l: 78%;
+      --name-s: 70%;
+      --name-l: 74%;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #08090e;
+    --glow: rgba(124, 124, 255, 0.14);
+    --surface: #0f1219;
+    --surface-2: #151923;
+    --surface-3: #1d2230;
+    --border: #232938;
+    --text: #e7e9f0;
+    --text-muted: #8a91a6;
+    --accent: #7474ff;
+    --accent-2: #a78bfa;
+    --accent-soft: rgba(116, 116, 255, 0.16);
+    --bubble-other: #1a1f2b;
+    --ok: #22c55e;
+    --warn: #f59e0b;
+    --danger: #f87171;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 24px 64px rgba(0, 0, 0, 0.5);
+    --av-bg-s: 35%;
+    --av-bg-l: 23%;
+    --av-fg-s: 85%;
+    --av-fg-l: 78%;
+    --name-s: 70%;
+    --name-l: 74%;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1100px 560px at 50% -12%, var(--glow), transparent 62%),
+      var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, input, textarea { font: inherit; color: inherit; }
+  button { -webkit-tap-highlight-color: transparent; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 900px;
+    height: calc(100vh - 48px);
+    height: calc(100dvh - 48px);
+    min-height: 520px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+  }
+
+  /* Header */
+  .topbar {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
   }
-  header h1 {
-    font-size: 16px;
-    margin: 0;
+
+  .brand {
     flex: 1;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-mark {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    color: var(--on-accent);
+    background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
+    box-shadow: 0 8px 20px var(--accent-soft);
+  }
+  .brand-mark svg { width: 20px; height: 20px; }
+
+  .brand-text { min-width: 0; }
+
+  .brand-title,
+  .brand-sub {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .brand-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .brand-sub {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    margin-right: 4px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .status-dot {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--warn);
+  }
+  .status[data-state="connected"] .status-dot {
+    background: var(--ok);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent);
+  }
+  .status[data-state="reconnecting"] .status-dot { background: var(--danger); }
+  .status:not([data-state="connected"]) .status-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: inherit;
+    animation: pulse 1.6s ease-out infinite;
+  }
+
+  .icon-btn {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .icon-btn:hover { background: var(--surface-3); color: var(--text); }
+  .icon-btn svg { width: 18px; height: 18px; }
+
+  .me {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 190px;
+    height: 34px;
+    padding: 0 12px 0 4px;
+    margin-right: 2px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s;
+  }
+  .me:hover { background: var(--surface-2); }
+  .me .avatar { width: 26px; height: 26px; font-size: 11px; }
+  .me-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  #status-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--warn);
-    flex-shrink: 0;
-    transition: background 0.2s;
-  }
-  #status-dot.connected { background: var(--ok); }
-  #status-dot.disconnected { background: var(--danger); }
-  #status-text {
-    font-size: 12px;
-    color: var(--text-dim);
-    white-space: nowrap;
-  }
 
-  #username-bar {
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--border);
+  /* Messages */
+  .chat {
+    position: relative;
+    flex: 1;
+    min-height: 0;
     display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: var(--text-dim);
-  }
-  #username-bar input {
-    flex: 1;
-    min-width: 0;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px 8px;
-    font-size: 13px;
   }
 
-  details#advanced {
-    border-bottom: 1px solid var(--border);
-    padding: 6px 16px;
-    font-size: 12px;
-    color: var(--text-dim);
-  }
-  details#advanced input {
-    width: 100%;
-    margin-top: 6px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px 8px;
-    font-size: 12px;
-  }
-
-  #log {
+  .messages {
     flex: 1;
-    overflow-y: auto;
-    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 16px;
+    padding: 24px 22px 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-3) transparent;
   }
 
-  .row { display: flex; flex-direction: column; max-width: 78%; }
-  .row.own { align-self: flex-end; align-items: flex-end; }
-  .row.other { align-self: flex-start; align-items: flex-start; }
+  .empty {
+    margin: auto;
+    max-width: 340px;
+    padding: 24px;
+    text-align: center;
+    color: var(--text-muted);
+  }
+  .empty-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 16px;
+    display: grid;
+    place-items: center;
+    border-radius: 16px;
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .empty-icon svg { width: 26px; height: 26px; }
+  .empty h2 {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .empty p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
 
-  .sender {
+  .group {
+    --h: 230;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+  }
+  .group.own { flex-direction: row-reverse; }
+
+  .avatar {
+    --h: 230;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    font-size: 12.5px;
+    font-weight: 600;
+    background: hsl(var(--h) var(--av-bg-s) var(--av-bg-l));
+    color: hsl(var(--h) var(--av-fg-s) var(--av-fg-l));
+    user-select: none;
+  }
+
+  .group-body {
+    min-width: 0;
+    max-width: min(600px, 78%);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+  .group.own .group-body { align-items: flex-end; }
+
+  .meta {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0 4px 3px;
+    font-size: 12px;
+  }
+  .meta-name {
+    font-weight: 600;
+    color: hsl(var(--h) var(--name-s) var(--name-l));
+  }
+  .group.own .meta-name { color: var(--text); }
+  .meta-time {
     font-size: 11px;
-    color: var(--text-dim);
-    margin: 6px 2px 2px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
   }
 
   .bubble {
-    padding: 8px 12px;
-    border-radius: 14px;
-    font-size: 14px;
-    line-height: 1.4;
-    word-wrap: break-word;
-    white-space: pre-wrap;
-  }
-  .row.own .bubble {
-    background: var(--accent);
-    color: var(--accent-text);
-    border-bottom-right-radius: 4px;
-  }
-  .row.other .bubble {
+    padding: 9px 13px;
+    border-radius: 16px;
     background: var(--bubble-other);
-    color: var(--text);
-    border-bottom-left-radius: 4px;
+    font-size: 14.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    animation: rise 0.18s ease-out;
   }
-
-  .timestamp {
-    font-size: 10px;
-    color: var(--text-dim);
-    margin: 2px 4px 0;
+  .group:not(.own) .bubble:last-child { border-bottom-left-radius: 6px; }
+  .group.own .bubble {
+    color: var(--on-accent);
+    background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
   }
+  .group.own .bubble:last-child { border-bottom-right-radius: 6px; }
 
   .system {
     align-self: center;
-    font-size: 11px;
-    color: var(--text-dim);
-    background: var(--bg);
-    border-radius: 10px;
-    padding: 3px 10px;
-    margin: 6px 0;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text-muted);
+    font-size: 12px;
+    animation: rise 0.18s ease-out;
   }
 
-  form#send-form {
-    display: flex;
-    gap: 8px;
-    padding: 12px;
+  .jump {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 999px;
+    background: var(--text);
+    color: var(--surface);
+    font-size: 12.5px;
+    font-weight: 500;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    animation: rise 0.18s ease-out;
+  }
+  .jump svg { width: 14px; height: 14px; }
+
+  /* Composer */
+  .composer {
+    padding: 12px 18px 14px;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--border);
   }
-  #text {
-    flex: 1;
+
+  .composer-box {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 6px 6px 6px 14px;
     border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 10px 14px;
-    font-size: 14px;
-    outline: none;
+    border-radius: 16px;
+    background: var(--surface-2);
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  #text:focus { border-color: var(--accent); }
-  button#send-btn {
+  .composer-box:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+
+  .composer textarea {
+    flex: 1;
+    min-height: 38px;
+    max-height: 160px;
+    padding: 8px 0;
     border: none;
-    background: var(--accent);
-    color: var(--accent-text);
-    border-radius: 20px;
-    padding: 0 18px;
-    font-size: 14px;
-    cursor: pointer;
+    outline: none;
+    resize: none;
+    background: transparent;
+    font-size: 14.5px;
+    line-height: 1.5;
   }
-  button#send-btn:disabled {
-    background: var(--border);
-    color: var(--text-dim);
+  .composer textarea::placeholder { color: var(--text-muted); }
+  .composer textarea:focus-visible { outline: none; }
+
+  .send {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    color: var(--on-accent);
+    background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
+    cursor: pointer;
+    transition: transform 0.15s, filter 0.15s;
+  }
+  .send:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+  .send:disabled {
+    background: var(--surface-3);
+    color: var(--text-muted);
     cursor: not-allowed;
+  }
+  .send svg { width: 18px; height: 18px; }
+
+  .hint {
+    margin: 8px 4px 0;
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+
+  kbd {
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    background: var(--surface);
+    font: inherit;
+    font-size: 11px;
+  }
+
+  code {
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: var(--surface-3);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+  }
+
+  /* Dialogs */
+  dialog {
+    width: min(440px, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    padding: 0;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow);
+  }
+  dialog[open] { animation: pop 0.18s ease-out; }
+  dialog::backdrop {
+    background: rgba(8, 10, 16, 0.45);
+    backdrop-filter: blur(4px);
+  }
+  .dialog-wide { width: min(520px, calc(100vw - 32px)); }
+
+  .dialog-inner { padding: 22px; }
+
+  .dialog-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .dialog-head h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .dialog-head p {
+    margin: 4px 0 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
+  .dialog-head .icon-btn { margin: -6px -6px 0 0; }
+
+  .field label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .field input {
+    width: 100%;
+    height: 42px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--surface-2);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  .field small {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-muted);
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .btn {
+    height: 38px;
+    padding: 0 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s, filter 0.15s;
+  }
+  .btn:hover { background: var(--surface-2); }
+  .btn-primary,
+  .btn-primary:hover {
+    border-color: transparent;
+    color: var(--on-accent);
+    background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
+  }
+  .btn-primary:hover { filter: brightness(1.07); }
+
+  .arch {
+    list-style: none;
+    margin: 0 0 20px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .arch li {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-2);
+  }
+  .arch li + li::before {
+    content: "";
+    position: absolute;
+    left: 25px;
+    top: -11px;
+    width: 2px;
+    height: 10px;
+    background: var(--border);
+  }
+  .arch-index {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .arch strong {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .arch-detail {
+    display: block;
+    margin-top: 2px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+
+  .section-title {
+    margin: 0 0 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+
+  .steps {
+    margin: 0 0 16px;
+    padding-left: 20px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+
+  .note {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 50;
+    max-width: calc(100vw - 32px);
+    transform: translateX(-50%);
+    padding: 10px 16px;
+    border-radius: 12px;
+    background: var(--text);
+    color: var(--surface);
+    font-size: 13px;
+    box-shadow: var(--shadow);
+    animation: rise 0.18s ease-out;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; translate: 0 6px; }
+    to { opacity: 1; translate: 0 0; }
+  }
+
+  @keyframes pop {
+    from { opacity: 0; scale: 0.97; }
+    to { opacity: 1; scale: 1; }
+  }
+
+  @keyframes pulse {
+    from { transform: scale(1); opacity: 0.6; }
+    to { transform: scale(2.8); opacity: 0; }
+  }
+
+  @media (max-width: 640px) {
+    body { padding: 0; }
+    .app {
+      height: 100vh;
+      height: 100dvh;
+      min-height: 0;
+      border: none;
+      border-radius: 0;
+    }
+    .topbar { padding: 12px 14px; gap: 8px; }
+    .brand { gap: 10px; }
+    .brand-sub,
+    .status-label,
+    .me-name,
+    #settings-open { display: none; }
+    .status { padding: 0 11px; margin-right: 0; }
+    .me { padding: 0 3px; margin-right: 0; }
+    .messages { padding: 18px 14px 12px; }
+    .group-body { max-width: 84%; }
+    .composer { padding: 10px 12px 12px; }
+    .hint { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation: none !important;
+      transition: none !important;
+    }
   }
 </style>
 </head>
 <body>
-<div id="app">
-  <header>
-    <span id="status-dot"></span>
-    <h1>Chat en tiempo real</h1>
-    <span id="status-text">conectando…</span>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.4A8 8 0 1 1 21 12z"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1 class="brand-title">Chat en tiempo real</h1>
+        <p class="brand-sub">FastAPI · WebSockets · Redis Pub/Sub · AWS ECS</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <div id="status" class="status" data-state="connecting" role="status">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="status-label" class="status-label">Conectando…</span>
+      </div>
+      <button id="me" class="me" type="button">
+        <span id="me-avatar" class="avatar" aria-hidden="true"></span>
+        <span id="me-name" class="me-name"></span>
+      </button>
+      <button id="info-open" class="icon-btn" type="button" aria-label="Cómo funciona" title="Cómo funciona">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+      </button>
+      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Cambiar tema claro u oscuro" title="Cambiar tema">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>
+      </button>
+      <button id="settings-open" class="icon-btn" type="button" aria-label="Configurar servidor" title="Configurar servidor">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+      </button>
+    </div>
   </header>
 
-  <div id="username-bar">
-    <span>Tu nombre:</span>
-    <input id="username" type="text" maxlength="24" />
-  </div>
+  <main class="chat">
+    <div id="log" class="messages" role="log" aria-label="Mensajes">
+      <div id="empty" class="empty">
+        <div class="empty-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.4A8 8 0 1 1 21 12z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg>
+        </div>
+        <h2>Todavía no hay mensajes</h2>
+        <p>Escribe el primero. Abre esta página en otra pestaña o en tu celular para verlo llegar en tiempo real.</p>
+      </div>
+    </div>
+    <button id="jump" class="jump" type="button" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+      Nuevos mensajes
+    </button>
+  </main>
 
-  <details id="advanced">
-    <summary>Configuración avanzada</summary>
-    <input id="backend-url" type="text" placeholder="ej: localhost:8000" />
-  </details>
-
-  <div id="log"></div>
-
-  <form id="send-form">
-    <input id="text" type="text" placeholder="Escribe un mensaje…" autocomplete="off" />
-    <button id="send-btn" type="submit">Enviar</button>
-  </form>
+  <footer class="composer">
+    <form id="composer" class="composer-box">
+      <label class="sr-only" for="message">Mensaje</label>
+      <textarea id="message" rows="1" maxlength="1000" placeholder="Escribe un mensaje…" autocomplete="off"></textarea>
+      <button id="send" class="send" type="submit" aria-label="Enviar mensaje" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
+    </form>
+    <p class="hint"><kbd>Enter</kbd> para enviar · <kbd>Shift</kbd> + <kbd>Enter</kbd> para nueva línea</p>
+  </footer>
 </div>
 
+<dialog id="name-dialog" aria-labelledby="name-title">
+  <form id="name-form" class="dialog-inner">
+    <div class="dialog-head">
+      <div>
+        <h2 id="name-title">Te damos la bienvenida</h2>
+        <p id="name-desc">Elige cómo te verán los demás en el chat.</p>
+      </div>
+      <button class="icon-btn" type="button" data-close aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="field">
+      <label for="name-input">Nombre</label>
+      <input id="name-input" type="text" maxlength="24" autocomplete="nickname" spellcheck="false" required>
+    </div>
+    <div class="dialog-actions">
+      <button id="name-submit" class="btn btn-primary" type="submit">Entrar al chat</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="settings-dialog" aria-labelledby="settings-title">
+  <form id="settings-form" class="dialog-inner">
+    <div class="dialog-head">
+      <div>
+        <h2 id="settings-title">Servidor</h2>
+        <p>Dirección del backend. Solo hace falta cambiarla en desarrollo local.</p>
+      </div>
+      <button class="icon-btn" type="button" data-close aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="field">
+      <label for="backend-input">Host y puerto</label>
+      <input id="backend-input" type="text" placeholder="localhost:8000" autocomplete="off" spellcheck="false" required>
+      <small>Sin protocolo: se usa https y wss, o http y ws, según cómo abriste esta página.</small>
+    </div>
+    <div class="dialog-actions">
+      <button class="btn" type="button" data-close>Cancelar</button>
+      <button class="btn btn-primary" type="submit">Conectar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="info-dialog" class="dialog-wide" aria-labelledby="info-title">
+  <div class="dialog-inner">
+    <div class="dialog-head">
+      <div>
+        <h2 id="info-title">Cómo funciona</h2>
+        <p>Arquitectura del proyecto desplegado en AWS.</p>
+      </div>
+      <button class="icon-btn" type="button" data-close aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <ol class="arch">
+      <li>
+        <span class="arch-index">1</span>
+        <div><strong>Navegador</strong><span class="arch-detail">HTTPS y WebSocket seguro (WSS)</span></div>
+      </li>
+      <li>
+        <span class="arch-index">2</span>
+        <div><strong>Application Load Balancer</strong><span class="arch-detail">TLS con ACM · <code>/ws</code> y <code>/send</code> van al backend</span></div>
+      </li>
+      <li>
+        <span class="arch-index">3</span>
+        <div><strong>Amazon ECS · Fargate</strong><span class="arch-detail">Frontend en Nginx · Backend FastAPI con 3 workers</span></div>
+      </li>
+      <li>
+        <span class="arch-index">4</span>
+        <div><strong>Amazon ElastiCache</strong><span class="arch-detail">Redis Pub/Sub con cifrado en tránsito</span></div>
+      </li>
+    </ol>
+
+    <h3 class="section-title">El recorrido de un mensaje</h3>
+    <ol class="steps">
+      <li>El navegador envía el mensaje con <code>POST /send</code>.</li>
+      <li>El worker que recibe la petición lo publica en un canal de Redis.</li>
+      <li>Todos los workers están suscritos a ese canal y lo reenvían por WebSocket a sus clientes.</li>
+    </ol>
+
+    <p class="note">La etiqueta <strong>worker</strong> junto al estado indica a qué proceso está conectada esta pestaña. Abre varias: aunque caigan en workers distintos, todas reciben los mismos mensajes.</p>
+  </div>
+</dialog>
+
+<div id="toast" class="toast" role="alert" hidden></div>
+
 <script>
-  const log = document.getElementById('log');
-  const statusDot = document.getElementById('status-dot');
-  const statusText = document.getElementById('status-text');
-  const usernameInput = document.getElementById('username');
-  const backendInput = document.getElementById('backend-url');
-  const textInput = document.getElementById('text');
-  const sendBtn = document.getElementById('send-btn');
-  const form = document.getElementById('send-form');
+(() => {
+  const byId = (id) => document.getElementById(id);
+  const els = {
+    log: byId('log'),
+    empty: byId('empty'),
+    jump: byId('jump'),
+    status: byId('status'),
+    statusLabel: byId('status-label'),
+    form: byId('composer'),
+    input: byId('message'),
+    send: byId('send'),
+    meButton: byId('me'),
+    meAvatar: byId('me-avatar'),
+    meName: byId('me-name'),
+    themeButton: byId('theme-toggle'),
+    infoButton: byId('info-open'),
+    settingsButton: byId('settings-open'),
+    nameDialog: byId('name-dialog'),
+    nameForm: byId('name-form'),
+    nameTitle: byId('name-title'),
+    nameDesc: byId('name-desc'),
+    nameInput: byId('name-input'),
+    nameSubmit: byId('name-submit'),
+    settingsDialog: byId('settings-dialog'),
+    settingsForm: byId('settings-form'),
+    backendInput: byId('backend-input'),
+    infoDialog: byId('info-dialog'),
+    toast: byId('toast'),
+  };
+
+  const storage = {
+    get(key) {
+      try { return localStorage.getItem(key); } catch { return null; }
+    },
+    set(key, value) {
+      try { localStorage.setItem(key, value); } catch {}
+    },
+  };
+
+  const MAX_NAME_LENGTH = 24;
+  const GROUP_WINDOW_MS = 3 * 60 * 1000;
+  const MAX_RETRY_MS = 10000;
+  const secure = location.protocol === 'https:';
+  const injectedBackend = window.BACKEND_URL && !window.BACKEND_URL.startsWith('$') ? window.BACKEND_URL : '';
+  const baseTitle = document.title;
+
+  let backend = injectedBackend || storage.get('chat_backend') || 'localhost:8000';
+  let username = (storage.get('chat_username') || '').trim();
+  let socket = null;
+  let connected = false;
+  let sending = false;
+  let workerId = null;
+  let hasConnected = false;
+  let retryDelay = 1000;
+  let retryTimer = null;
+  let countdownTimer = null;
+  let toastTimer = null;
+  let lastGroup = null;
+  let unread = 0;
 
   function randomName() {
-    return 'Invitado' + Math.floor(1000 + Math.random() * 9000);
-  }
-  usernameInput.value = localStorage.getItem('chat_username') || randomName();
-  usernameInput.addEventListener('input', () => {
-    localStorage.setItem('chat_username', usernameInput.value.trim());
-  });
-  localStorage.setItem('chat_username', usernameInput.value.trim());
-
-  backendInput.value = window.BACKEND_URL && !window.BACKEND_URL.startsWith('$')
-    ? window.BACKEND_URL
-    : (localStorage.getItem('chat_backend') || 'localhost:8000');
-  backendInput.addEventListener('change', () => {
-    localStorage.setItem('chat_backend', backendInput.value.trim());
-    reconnect();
-  });
-
-  function scrollToBottom() {
-    log.scrollTop = log.scrollHeight;
+    return `Invitado${Math.floor(1000 + Math.random() * 9000)}`;
   }
 
-  function formatTime(epochSeconds) {
-    const d = epochSeconds ? new Date(epochSeconds * 1000) : new Date();
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  function hueFor(name) {
+    let hash = 0;
+    for (const char of name) hash = (hash * 31 + char.codePointAt(0)) >>> 0;
+    return hash % 360;
+  }
+
+  function initialsFor(name) {
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return '?';
+    return words.slice(0, 2).map((word) => Array.from(word)[0]).join('').toUpperCase();
+  }
+
+  function paintAvatar(el, name) {
+    el.textContent = initialsFor(name);
+    el.style.setProperty('--h', String(hueFor(name)));
+  }
+
+  function createAvatar(name) {
+    const el = document.createElement('div');
+    el.className = 'avatar';
+    el.setAttribute('aria-hidden', 'true');
+    paintAvatar(el, name);
+    return el;
+  }
+
+  function formatTime(ms) {
+    return new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function setUsername(name) {
+    username = Array.from(name.trim()).slice(0, MAX_NAME_LENGTH).join('') || randomName();
+    storage.set('chat_username', username);
+    els.meName.textContent = username;
+    paintAvatar(els.meAvatar, username);
+    els.meButton.title = `Conectado como ${username} · cambiar nombre`;
+    els.meButton.setAttribute('aria-label', els.meButton.title);
+  }
+
+  function openNameDialog(welcome) {
+    els.nameTitle.textContent = welcome ? 'Te damos la bienvenida' : 'Cambiar nombre';
+    els.nameDesc.textContent = welcome
+      ? 'Elige cómo te verán los demás en el chat.'
+      : 'Los mensajes que envíes desde ahora usarán este nombre.';
+    els.nameSubmit.textContent = welcome ? 'Entrar al chat' : 'Guardar';
+    els.nameInput.value = username;
+    els.nameDialog.showModal();
+    els.nameInput.select();
+  }
+
+  function showToast(message) {
+    els.toast.textContent = message;
+    els.toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { els.toast.hidden = true; }, 4000);
+  }
+
+  function updateSendButton() {
+    els.send.disabled = !connected || sending || els.input.value.trim() === '';
+  }
+
+  function setStatus(state, seconds = 0) {
+    let label;
+    if (state === 'connected') label = workerId ? `Conectado · worker ${workerId}` : 'Conectado';
+    else if (state === 'connecting') label = 'Conectando…';
+    else label = seconds > 0 ? `Reconectando en ${seconds}s` : 'Reconectando…';
+
+    els.status.dataset.state = state;
+    if (els.statusLabel.textContent !== label) {
+      els.statusLabel.textContent = label;
+      els.status.title = label;
+    }
+    connected = state === 'connected';
+    updateSendButton();
+  }
+
+  function isNearBottom() {
+    const { scrollHeight, scrollTop, clientHeight } = els.log;
+    return scrollHeight - scrollTop - clientHeight < 96;
+  }
+
+  function scrollToBottom(smooth) {
+    els.log.scrollTo({ top: els.log.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
+    els.jump.hidden = true;
+  }
+
+  function removeEmptyState() {
+    if (!els.empty) return;
+    els.empty.remove();
+    els.empty = null;
   }
 
   function addSystem(text) {
-    const div = document.createElement('div');
-    div.className = 'system';
-    div.textContent = text;
-    log.appendChild(div);
-    scrollToBottom();
+    const stick = isNearBottom();
+    removeEmptyState();
+    const el = document.createElement('div');
+    el.className = 'system';
+    el.textContent = text;
+    els.log.append(el);
+    lastGroup = null;
+    if (stick) scrollToBottom();
   }
 
-  function addMessage(username, text, ts) {
-    const isOwn = username === usernameInput.value.trim();
-    const row = document.createElement('div');
-    row.className = 'row ' + (isOwn ? 'own' : 'other');
+  function addMessage(data) {
+    const name = String(data.username || 'Anónimo');
+    const time = Number.isFinite(data.ts) ? data.ts * 1000 : Date.now();
+    const own = name === username;
+    const stick = own || isNearBottom();
+    removeEmptyState();
 
-    if (!isOwn) {
-      const sender = document.createElement('div');
-      sender.className = 'sender';
-      sender.textContent = username;
-      row.appendChild(sender);
+    const continues = lastGroup && lastGroup.name === name && time - lastGroup.time < GROUP_WINDOW_MS;
+    let body;
+
+    if (continues) {
+      body = lastGroup.body;
+    } else {
+      const group = document.createElement('div');
+      group.className = own ? 'group own' : 'group';
+      group.style.setProperty('--h', String(hueFor(name)));
+      if (!own) group.append(createAvatar(name));
+
+      body = document.createElement('div');
+      body.className = 'group-body';
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const who = document.createElement('span');
+      who.className = 'meta-name';
+      who.textContent = own ? 'Tú' : name;
+      const when = document.createElement('time');
+      when.className = 'meta-time';
+      when.dateTime = new Date(time).toISOString();
+      when.textContent = formatTime(time);
+      meta.append(who, when);
+
+      body.append(meta);
+      group.append(body);
+      els.log.append(group);
     }
 
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
-    bubble.textContent = text;
-    row.appendChild(bubble);
+    bubble.textContent = String(data.text ?? '');
+    bubble.title = formatTime(time);
+    body.append(bubble);
 
-    const time = document.createElement('div');
-    time.className = 'timestamp';
-    time.textContent = formatTime(ts);
-    row.appendChild(time);
+    lastGroup = { name, time, body };
 
-    log.appendChild(row);
-    scrollToBottom();
+    if (stick) scrollToBottom();
+    else els.jump.hidden = false;
+
+    if (document.hidden && !own) {
+      unread += 1;
+      document.title = `(${unread}) ${baseTitle}`;
+    }
   }
 
-  function setStatus(state) {
-    statusDot.className = state;
-    if (state === 'connected') statusText.textContent = 'conectado';
-    else if (state === 'disconnected') statusText.textContent = 'desconectado — reintentando…';
-    else statusText.textContent = 'conectando…';
-    sendBtn.disabled = state !== 'connected';
+  function handleIncoming(raw) {
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      addSystem(String(raw));
+      return;
+    }
+
+    if (data.type === 'message') {
+      addMessage(data);
+    } else if (data.type === 'system') {
+      const match = /worker\s+(\d+)/i.exec(data.text || '');
+      if (match) {
+        workerId = match[1];
+        if (connected) setStatus('connected');
+      } else if (data.text) {
+        addSystem(data.text);
+      }
+    }
   }
 
-  let ws = null;
-  let reconnectDelay = 1000;
-  const MAX_RECONNECT_DELAY = 10000;
+  function scheduleReconnect() {
+    const delay = retryDelay;
+    retryDelay = Math.min(retryDelay * 2, MAX_RETRY_MS);
+    const deadline = Date.now() + delay;
+    const tick = () => setStatus('reconnecting', Math.ceil((deadline - Date.now()) / 1000));
+    tick();
+    clearInterval(countdownTimer);
+    countdownTimer = setInterval(tick, 250);
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(connect, delay);
+  }
 
   function connect() {
-    const backend = backendInput.value.trim();
+    clearTimeout(retryTimer);
+    clearInterval(countdownTimer);
+    workerId = null;
     setStatus('connecting');
-    ws = new WebSocket(`ws://${backend}/ws`);
 
-    ws.onopen = () => {
+    let ws;
+    try {
+      ws = new WebSocket(`${secure ? 'wss' : 'ws'}://${backend}/ws`);
+    } catch {
+      scheduleReconnect();
+      return;
+    }
+    socket = ws;
+
+    ws.addEventListener('open', () => {
+      if (socket !== ws) return;
+      retryDelay = 1000;
+      if (hasConnected) addSystem('Conexión restablecida');
+      hasConnected = true;
       setStatus('connected');
-      reconnectDelay = 1000;
-    };
+    });
 
-    ws.onmessage = (event) => {
-      let data;
-      try {
-        data = JSON.parse(event.data);
-      } catch (e) {
-        addSystem(event.data);
-        return;
-      }
-      if (data.type === 'system') {
-        addSystem(data.text);
-      } else if (data.type === 'message') {
-        addMessage(data.username, data.text, data.ts);
-      }
-    };
+    ws.addEventListener('message', (event) => {
+      if (socket === ws) handleIncoming(event.data);
+    });
 
-    ws.onclose = () => {
-      setStatus('disconnected');
-      setTimeout(connect, reconnectDelay);
-      reconnectDelay = Math.min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
-    };
+    ws.addEventListener('close', () => {
+      if (socket !== ws) return;
+      socket = null;
+      scheduleReconnect();
+    });
 
-    ws.onerror = () => {
-      ws.close();
-    };
+    ws.addEventListener('error', () => ws.close());
   }
 
-  function reconnect() {
-    if (ws) ws.close();
+  function reconnectNow() {
+    const previous = socket;
+    socket = null;
+    if (previous) previous.close();
+    retryDelay = 1000;
     connect();
   }
 
-  connect();
+  function autoGrow() {
+    els.input.style.height = 'auto';
+    els.input.style.height = `${Math.min(els.input.scrollHeight, 160)}px`;
+  }
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const backend = backendInput.value.trim();
-    const username = usernameInput.value.trim() || randomName();
-    const text = textInput.value.trim();
-    if (!text) return;
+  els.form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const text = els.input.value.trim();
+    if (!text || !connected || sending) return;
 
+    sending = true;
+    updateSendButton();
     try {
-      await fetch(`http://${backend}/send`, {
+      const response = await fetch(`${secure ? 'https' : 'http'}://${backend}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, username })
+        body: JSON.stringify({ text, username }),
       });
-      textInput.value = '';
-      textInput.focus();
-    } catch (err) {
-      addSystem('⚠️ Error al enviar: ' + err.message);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      els.input.value = '';
+      autoGrow();
+    } catch {
+      showToast('No se pudo enviar el mensaje. Inténtalo de nuevo.');
+    } finally {
+      sending = false;
+      updateSendButton();
+      els.input.focus();
     }
   });
+
+  els.input.addEventListener('input', () => {
+    autoGrow();
+    updateSendButton();
+  });
+
+  els.input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      els.form.requestSubmit();
+    }
+  });
+
+  els.log.addEventListener('scroll', () => {
+    if (isNearBottom()) els.jump.hidden = true;
+  });
+
+  els.jump.addEventListener('click', () => scrollToBottom(true));
+
+  els.nameForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    setUsername(els.nameInput.value);
+    els.nameDialog.close();
+    els.input.focus();
+  });
+
+  els.meButton.addEventListener('click', () => openNameDialog(false));
+  els.infoButton.addEventListener('click', () => els.infoDialog.showModal());
+
+  els.settingsButton.addEventListener('click', () => {
+    els.backendInput.value = backend;
+    els.settingsDialog.showModal();
+    els.backendInput.select();
+  });
+
+  els.settingsForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const value = els.backendInput.value.trim().replace(/^(wss?|https?):\/\//i, '').replace(/\/+$/, '');
+    if (!value) return;
+    backend = value;
+    storage.set('chat_backend', backend);
+    els.settingsDialog.close();
+    reconnectNow();
+  });
+
+  els.themeButton.addEventListener('click', () => {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const current = document.documentElement.dataset.theme || (prefersDark ? 'dark' : 'light');
+    const next = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    storage.set('chat_theme', next);
+  });
+
+  document.querySelectorAll('dialog').forEach((dialog) => {
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+  });
+
+  document.querySelectorAll('[data-close]').forEach((button) => {
+    button.addEventListener('click', () => button.closest('dialog').close());
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    unread = 0;
+    document.title = baseTitle;
+  });
+
+  window.addEventListener('online', () => {
+    if (!connected) reconnectNow();
+  });
+
+  const firstVisit = !username;
+  setUsername(username || randomName());
+  autoGrow();
+  connect();
+
+  if (firstVisit) openNameDialog(true);
+  else els.input.focus();
+})();
 </script>
 </body>
 </html>

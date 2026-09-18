@@ -45,8 +45,8 @@ resource "aws_ecs_task_definition" "frontend" {
       protocol      = "tcp"
       appProtocol   = "http"
     }]
-    environment = var.backend_url == "" ? [] : [
-      { name = "BACKEND_URL", value = var.backend_url },
+    environment = [
+      { name = "BACKEND_URL", value = var.app_domain },
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -134,6 +134,14 @@ resource "aws_ecs_service" "frontend" {
     security_groups  = [aws_security_group.frontend.id]
     assign_public_ip = true
   }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.frontend.arn
+    container_name   = "frontend"
+    container_port   = 80
+  }
+
+  depends_on = [aws_lb_listener.https]
 }
 
 resource "aws_ecs_service" "backend" {
@@ -161,4 +169,12 @@ resource "aws_ecs_service" "backend" {
     security_groups  = [aws_security_group.backend.id]
     assign_public_ip = true
   }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.backend.arn
+    container_name   = "backend"
+    container_port   = 8000
+  }
+
+  depends_on = [aws_lb_listener_rule.backend]
 }

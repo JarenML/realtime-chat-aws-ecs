@@ -1,3 +1,12 @@
+output "app_url" {
+  value = "https://${var.app_domain}"
+}
+
+output "alb_dns_name" {
+  description = "Destino del CNAME del chat en Cloudflare."
+  value       = aws_lb.main.dns_name
+}
+
 output "ecr_frontend_url" {
   value = aws_ecr_repository.frontend.repository_url
 }
