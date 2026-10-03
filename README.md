@@ -105,7 +105,7 @@ Requirements: an AWS account with the AWS CLI configured, Terraform 1.10 or late
    terraform apply -target=aws_ecr_repository.frontend -target=aws_ecr_repository.backend -target=aws_acm_certificate.chat
    ```
 
-3. **Validate the certificate.** Run `terraform state show aws_acm_certificate.chat`, copy the CNAME from `domain_validation_options` into your DNS provider, and wait until the certificate status in ACM is `Issued`. Keep that record: ACM uses it to renew the certificate.
+3. **Validate the certificate.** Run `terraform output acm_validation_records` and create that CNAME in your DNS provider (with Cloudflare, *DNS only*). Keep that record: ACM uses it to renew the certificate. You don't need to wait for it here: in step 5, `aws_acm_certificate_validation` waits up to 45 minutes for the certificate to be `Issued` before creating the HTTPS listener.
 
 4. **Build and push the images.**
    ```bash

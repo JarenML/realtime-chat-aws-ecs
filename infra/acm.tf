@@ -7,3 +7,13 @@ resource "aws_acm_certificate" "chat" {
     create_before_destroy = true
   }
 }
+
+# Espera a que el certificado quede "Issued" (despues de crear el CNAME de validacion en Cloudflare)
+# antes de crear el listener HTTPS.
+resource "aws_acm_certificate_validation" "chat" {
+  certificate_arn = aws_acm_certificate.chat.arn
+
+  timeouts {
+    create = "45m"
+  }
+}
